@@ -230,12 +230,15 @@ export class ProductRepository {
         variantFilters.inventoryQuantity = { gt: 0 };
       }
 
-      if (Object.keys(variantFilters).length > 1 || minPrice !== undefined || maxPrice !== undefined) {
+      const priceFilter: Record<string, number> = {};
+      if (minPrice !== undefined) priceFilter.gte = minPrice;
+      if (maxPrice !== undefined) priceFilter.lte = maxPrice;
+
+      if (Object.keys(variantFilters).length > 1 || Object.keys(priceFilter).length > 0) {
         where.variants = {
           some: {
             ...variantFilters,
-            ...(minPrice !== undefined ? { price: { gte: minPrice } } : {}),
-            ...(maxPrice !== undefined ? { price: { lte: maxPrice } } : {}),
+            ...(Object.keys(priceFilter).length > 0 ? { price: priceFilter } : {}),
           },
         };
       }
@@ -353,6 +356,13 @@ export class ProductRepository {
           totalPages: Math.ceil(total / boundedLimit) || 1,
         };
       }
+      return {
+        products: [],
+        total: 0,
+        page: boundedPage,
+        limit: boundedLimit,
+        totalPages: 1,
+      };
     } catch {
       logger.info("Using resilient in-memory catalog fallback", undefined, "ProductRepository");
     }
@@ -415,15 +425,13 @@ export class ProductRepository {
       );
     }
 
-    if (minPrice !== undefined) {
+    if (minPrice !== undefined || maxPrice !== undefined) {
       filtered = filtered.filter((p) =>
-        p.variants.some((v) => v.price >= minPrice)
-      );
-    }
-
-    if (maxPrice !== undefined) {
-      filtered = filtered.filter((p) =>
-        p.variants.some((v) => v.price <= maxPrice)
+        p.variants.some(
+          (v) =>
+            (minPrice === undefined || v.price >= minPrice) &&
+            (maxPrice === undefined || v.price <= maxPrice)
+        )
       );
     }
 
@@ -567,9 +575,6 @@ export class ProductRepository {
   }
 
   async findById(id: string): Promise<Product | null> {
-    const memoryItem = this.memoryProducts.find((p) => p.id === id);
-    if (memoryItem) return memoryItem;
-
     try {
       const dbProduct = await prisma.product.findUnique({
         where: { id },
@@ -587,17 +592,13 @@ export class ProductRepository {
       // Fallback
     }
 
+    const memoryItem = this.memoryProducts.find((p) => p.id === id);
+    if (memoryItem) return memoryItem;
+
     return null;
   }
 
   async findVariantById(variantId: string): Promise<{ variant: ProductVariant; product: Product } | null> {
-    for (const p of this.memoryProducts) {
-      const v = p.variants.find((vr) => vr.id === variantId);
-      if (v) {
-        return { variant: v, product: p };
-      }
-    }
-
     try {
       const dbVariant = await prisma.productVariant.findUnique({
         where: { id: variantId },
@@ -605,14 +606,21 @@ export class ProductRepository {
       });
 
       if (dbVariant) {
-        const product = await this.findById(dbVariant.productId);
+        const product = await this.findBySlug(dbVariant.product.slug, true);
         if (product) {
-          const v = product.variants.find((vr) => vr.id === variantId);
+          const v = product.variants.find((vr) => vr.id === variantId || vr.sku === dbVariant.sku);
           if (v) return { variant: v, product };
         }
       }
     } catch {
       // Fallback
+    }
+
+    for (const p of this.memoryProducts) {
+      const v = p.variants.find((vr) => vr.id === variantId);
+      if (v) {
+        return { variant: v, product: p };
+      }
     }
 
     return null;
@@ -647,6 +655,10 @@ export class ProductRepository {
     } else {
       this.memoryProducts.unshift(product);
     }
+  }
+
+  getMemoryProducts(): Product[] {
+    return this.memoryProducts;
   }
 
   updateMemoryProduct(product: Product): void {

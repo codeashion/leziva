@@ -31,13 +31,15 @@ export class AddressRepository {
         where: { userId },
         orderBy: [{ isDefaultShipping: "desc" }, { createdAt: "desc" }],
       });
-      return addresses as StoredAddress[];
+      if (addresses.length > 0) {
+        return addresses as StoredAddress[];
+      }
     } catch {
       logger.info("[AddressRepository] Using in-memory fallback for findByUserId");
-      return Array.from(this.memoryAddresses.values())
-        .filter((a) => a.userId === userId)
-        .sort((a, b) => (b.isDefaultShipping ? 1 : 0) - (a.isDefaultShipping ? 1 : 0));
     }
+    return Array.from(this.memoryAddresses.values())
+      .filter((a) => a.userId === userId)
+      .sort((a, b) => (b.isDefaultShipping ? 1 : 0) - (a.isDefaultShipping ? 1 : 0));
   }
 
   async findById(addressId: string): Promise<StoredAddress | null> {
@@ -45,11 +47,13 @@ export class AddressRepository {
       const address = await prisma.address.findUnique({
         where: { id: addressId },
       });
-      return address as StoredAddress | null;
+      if (address) {
+        return address as StoredAddress;
+      }
     } catch {
       logger.info("[AddressRepository] Using in-memory fallback for findById");
-      return this.memoryAddresses.get(addressId) || null;
     }
+    return this.memoryAddresses.get(addressId) || null;
   }
 
   async create(userId: string | null, input: AddressInput): Promise<StoredAddress> {
@@ -85,6 +89,7 @@ export class AddressRepository {
           isDefaultBilling: input.isDefaultBilling,
         },
       });
+      this.memoryAddresses.set(created.id, created as StoredAddress);
       return created as StoredAddress;
     } catch {
       logger.info("[AddressRepository] Using in-memory fallback for create");
@@ -176,12 +181,13 @@ export class AddressRepository {
   }
 
   async delete(addressId: string): Promise<boolean> {
+    this.memoryAddresses.delete(addressId);
     try {
       await prisma.address.delete({ where: { id: addressId } });
       return true;
     } catch {
       logger.info("[AddressRepository] Using in-memory fallback for delete");
-      return this.memoryAddresses.delete(addressId);
+      return true;
     }
   }
 

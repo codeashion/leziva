@@ -32,13 +32,16 @@ describe("Phase 6: Admin Dashboard, Operations & Workflows Verification Suite", 
 
   before(async () => {
     // 1. Seed in-memory test product with variants for Catalog & Inventory testing
+    const lehengaCat = await productRepository.getCategoryBySlug("lehengas");
+    const activeCatId = lehengaCat ? lehengaCat.id : "cat_lehengas";
+
     sampleVariantId = `var_adm_test_${Date.now()}`;
     sampleProduct = {
       id: `prod_adm_test_${Date.now()}`,
       title: "Royal Crimson Zardozi Lehenga",
       slug: `royal-crimson-zardozi-lehenga-${Date.now()}`,
       description: "Handcrafted crimson silk ensemble with heirloom antique metallic embroidery.",
-      categoryId: "cat_lehengas",
+      categoryId: activeCatId,
       status: "ACTIVE",
       isFeatured: true,
       isNewArrival: true,

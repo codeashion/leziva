@@ -146,6 +146,7 @@ model User {
   emailVerifiedAt DateTime?
   lastLoginAt     DateTime?
   image           String?
+  supabaseUid     String?    @unique
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
 

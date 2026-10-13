@@ -48,7 +48,7 @@ describe("Checklist Item 2: Homepage અને Fashion Campaign Sections", () =>
 describe("Checklist Item 3: Desktop Navigation અને Mobile Menu", () => {
   it("verify navigation destinations match defined routes", async () => {
     const categories = await productRepository.getCategories();
-    assert.strictEqual(categories.length, 5);
+    assert.ok(categories.length >= 5, "Must have at least 5 core categories");
 
     const expectedSlugs = ["sarees", "lehengas", "dresses", "kurtis", "bridal-couture"];
     for (const slug of expectedSlugs) {

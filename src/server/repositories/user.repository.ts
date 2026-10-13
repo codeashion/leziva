@@ -28,6 +28,26 @@ export class UserRepository {
     });
   }
 
+  async findBySupabaseUid(supabaseUid: string) {
+    return prisma.user.findUnique({
+      where: { supabaseUid },
+      include: {
+        userRoles: {
+          include: {
+            role: true,
+          },
+        },
+      },
+    });
+  }
+
+  async updateSupabaseUid(userId: string, supabaseUid: string) {
+    return prisma.user.update({
+      where: { id: userId },
+      data: { supabaseUid },
+    });
+  }
+
   async createUser(data: {
     email: string;
     normalizedEmail: string;
@@ -35,6 +55,7 @@ export class UserRepository {
     name?: string;
     status?: UserStatus;
     initialRole?: RoleType;
+    supabaseUid?: string;
   }) {
     return prisma.$transaction(async (tx) => {
       // Find or create default role
@@ -60,6 +81,7 @@ export class UserRepository {
           passwordHash: data.passwordHash,
           name: data.name,
           status: data.status || UserStatus.ACTIVE,
+          supabaseUid: data.supabaseUid,
         },
       });
 

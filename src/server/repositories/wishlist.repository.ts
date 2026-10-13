@@ -118,7 +118,10 @@ export class WishlistRepository {
         await prisma.wishlistItem.deleteMany({
           where: { userId, productId },
         });
-        return true;
+      } else if (sessionToken) {
+        await prisma.wishlistItem.deleteMany({
+          where: { sessionToken, productId },
+        });
       }
     } catch {
       // Memory fallback

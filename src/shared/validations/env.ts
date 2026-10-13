@@ -12,8 +12,8 @@ export const serverEnvSchema = z.object({
     .default("postgresql://leziva_user:leziva_pass@localhost:5432/leziva_db?schema=public"),
   DIRECT_URL: z.string().url().optional(),
   
-  // Redis Cache & Queues
-  REDIS_URL: z.string().default("redis://localhost:6379"),
+  // Cache & Resilient Queues (Optional - defaults to high-performance In-Memory cache)
+  REDIS_URL: z.string().optional(),
   
   // App & API URLs
   APP_URL: z.string().url().default("http://localhost:3000"),
@@ -54,12 +54,22 @@ export const serverEnvSchema = z.object({
   S3_REGION: z.string().default("ap-south-1"),
   S3_ACCESS_KEY_ID: z.string().default("s3_placeholder_access_key"),
   S3_SECRET_ACCESS_KEY: z.string().default("s3_placeholder_secret_key"),
+
+  // Supabase Platform Configuration
+  NEXT_PUBLIC_SUPABASE_URL: z.string().url().optional(),
+  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: z.string().optional(),
+  SUPABASE_URL: z.string().url().optional(),
+  SUPABASE_PUBLISHABLE_KEY: z.string().optional(),
+  SUPABASE_SECRET_KEY: z.string().optional(),
+  SUPABASE_JWKS_URL: z.string().url().optional(),
 });
 
 export const clientEnvSchema = z.object({
   NEXT_PUBLIC_APP_URL: z.string().default("http://localhost:3000"),
   NEXT_PUBLIC_BRAND_NAME: z.string().default("LEZIVA"),
   NEXT_PUBLIC_RAZORPAY_KEY_ID: z.string().optional().default("rzp_test_placeholder_key_id"),
+  NEXT_PUBLIC_SUPABASE_URL: z.string().url().optional(),
+  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: z.string().optional(),
 });
 
 export type ServerEnv = z.infer<typeof serverEnvSchema>;

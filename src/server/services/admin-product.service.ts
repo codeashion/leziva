@@ -344,6 +344,13 @@ export class AdminProductService {
    */
   async exportProductsToCsv(): Promise<string> {
     const { products } = await productRepository.findProducts({ limit: 1000, includeUnpublished: true });
+    const memoryProducts = productRepository.getMemoryProducts();
+    const allProducts = [...products];
+    for (const mp of memoryProducts) {
+      if (!allProducts.some((p) => p.id === mp.id)) {
+        allProducts.push(mp);
+      }
+    }
 
     const headers = [
       "Product ID",
@@ -361,7 +368,7 @@ export class AdminProductService {
 
     const rows: string[] = [headers.map((h) => `"${h}"`).join(",")];
 
-    for (const prod of products) {
+    for (const prod of allProducts) {
       for (const v of prod.variants || []) {
         const row = [
           this.sanitizeCsvCell(prod.id),

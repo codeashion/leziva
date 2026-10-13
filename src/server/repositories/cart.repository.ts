@@ -199,15 +199,15 @@ export class CartRepository {
           cartId,
         },
       });
-      return true;
     } catch {
-      const cart = this.memoryCarts.get(cartId);
-      if (cart) {
-        cart.items = cart.items.filter((i) => i.id !== itemId && i.variantId !== itemId);
-        return true;
-      }
-      return false;
+      // Memory fallback
     }
+
+    const cart = this.memoryCarts.get(cartId);
+    if (cart) {
+      cart.items = cart.items.filter((i) => i.id !== itemId && i.variantId !== itemId);
+    }
+    return true;
   }
 
   /**
@@ -219,10 +219,12 @@ export class CartRepository {
         where: { cartId },
       });
     } catch {
-      const cart = this.memoryCarts.get(cartId);
-      if (cart) {
-        cart.items = [];
-      }
+      // Memory fallback
+    }
+
+    const cart = this.memoryCarts.get(cartId);
+    if (cart) {
+      cart.items = [];
     }
   }
 
@@ -235,8 +237,9 @@ export class CartRepository {
         where: { id: cartId },
       });
     } catch {
-      this.memoryCarts.delete(cartId);
+      // Memory fallback
     }
+    this.memoryCarts.delete(cartId);
   }
 }
 
