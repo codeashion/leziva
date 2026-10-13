@@ -1,0 +1,285 @@
+openapi: 3.1.0
+info:
+  title: LEZIVA Platform API
+  description: Official REST API specification for LEZIVA Luxury Fashion E-Commerce Platform.
+  version: 1.0.0
+  contact:
+    name: LEZIVA Engineering Core
+    email: engineering@leziva.com
+
+servers:
+  - url: http://localhost:3000/api/v1
+    description: Local Development Server
+  - url: https://api.leziva.com/v1
+    description: Production Edge Gateway
+
+paths:
+  /health:
+    get:
+      summary: Liveness probe
+      description: Returns service uptime and overall subsystem operational readiness.
+      responses:
+        '200':
+          description: Service is healthy.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /ready:
+    get:
+      summary: Dependency readiness check
+      description: Probes live database and cache connections before traffic routing.
+      responses:
+        '200':
+          description: All dependencies are connected and operational.
+        '503':
+          description: One or more critical dependencies are degraded or offline.
+
+  /auth/register:
+    post:
+      summary: Customer account registration
+      description: Registers a new customer account. Public registration assigns the CUSTOMER role strictly.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: Registration successful; sets HttpOnly session cookie.
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+                example: leziva_session=token_abc123; Path=/; HttpOnly; SameSite=Lax
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthSuccessResponse'
+        '400':
+          description: Validation failure or invalid parameters.
+        '409':
+          description: Email is already registered.
+        '429':
+          description: Rate limit exceeded (Max 5 registrations per 10 minutes).
+
+  /auth/login:
+    post:
+      summary: User credentials authentication
+      description: Authenticates user credentials using bcrypt hash verification and returns a session.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login successful; sets HttpOnly session cookie.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthSuccessResponse'
+        '401':
+          description: Invalid email or password.
+        '429':
+          description: Rate limit exceeded (Max 5 attempts per 5 minutes).
+
+  /auth/logout:
+    post:
+      summary: Session termination
+      description: Revokes active session token in database and clears session cookie.
+      responses:
+        '200':
+          description: Successfully signed out.
+
+  /auth/me:
+    get:
+      summary: Current authenticated user profile
+      description: Returns the authenticated user's profile and roles. Passwords hashes are never returned.
+      security:
+        - CookieAuth: []
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Profile retrieved.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfileResponse'
+        '401':
+          description: Unauthenticated.
+
+  /auth/forgot-password:
+    post:
+      summary: Password reset request
+      description: Dispatches a password reset token. Always returns an opaque response to mitigate user enumeration.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        '200':
+          description: Opaque dispatch response.
+        '429':
+          description: Rate limit exceeded.
+
+  /auth/reset-password:
+    post:
+      summary: Password reset completion
+      description: Validates unexpired reset token, updates password, and revokes all active sessions across devices.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResetPasswordRequest'
+      responses:
+        '200':
+          description: Password reset successful.
+        '400':
+          description: Invalid, used, or expired reset token.
+
+  /auth/sessions/revoke:
+    post:
+      summary: Invalidate user sessions
+      description: Invalidate the current session or all active sessions across devices.
+      security:
+        - CookieAuth: []
+        - BearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                all:
+                  type: boolean
+                  default: false
+      responses:
+        '200':
+          description: Sessions revoked.
+
+components:
+  securitySchemes:
+    CookieAuth:
+      type: apiKey
+      in: cookie
+      name: leziva_session
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: Token
+
+  schemas:
+    RegisterRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 255
+        password:
+          type: string
+          minLength: 8
+          maxLength: 128
+          description: Must contain at least one uppercase letter, one lowercase letter, and one number.
+        name:
+          type: string
+          minLength: 2
+          maxLength: 100
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+
+    ResetPasswordRequest:
+      type: object
+      required: [token, newPassword]
+      properties:
+        token:
+          type: string
+        newPassword:
+          type: string
+          minLength: 8
+          maxLength: 128
+
+    AuthSuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            user:
+              $ref: '#/components/schemas/UserDto'
+            message:
+              type: string
+        timestamp:
+          type: string
+          format: date-time
+
+    UserProfileResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            user:
+              $ref: '#/components/schemas/UserDto'
+
+    UserDto:
+      type: object
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+        name:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [ACTIVE, SUSPENDED, PENDING_VERIFICATION]
+        roles:
+          type: array
+          items:
+            type: string
+            enum: [SUPER_ADMIN, CATALOG_MANAGER, ORDER_MANAGER, SUPPORT_AGENT, CUSTOMER]
+        createdAt:
+          type: string
+          format: date-time
+
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: healthy
+        service:
+          type: string
+        uptimeSeconds:
+          type: integer
+        timestamp:
+          type: string

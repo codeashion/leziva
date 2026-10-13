@@ -1,0 +1,115 @@
+/**
+ * LEZIVA Luxury Editorial Design System Tokens
+ * Defines core variables, palette, typography, elevation, and layout primitives.
+ */
+
+:root {
+  /* =========================================================================
+     1. Official Brand Identity Colors
+     ========================================================================= */
+  --leziva-warm-ivory: #EAE6DE;
+  --leziva-warm-ivory-light: #F6F4F0;
+  --leziva-warm-ivory-dark: #DDD7CB;
+  
+  --leziva-deep-blue: #226192;
+  --leziva-deep-blue-hover: #1b4f77;
+  --leziva-deep-blue-dark: #164366;
+  --leziva-deep-blue-light: #357cb5;
+  
+  --leziva-coral: #EF8557;
+  --leziva-coral-hover: #e8713d;
+  --leziva-coral-light: #f7a884;
+  --leziva-coral-muted: rgba(239, 133, 87, 0.15);
+
+  --leziva-champagne-gold: #D4AF37;
+  --leziva-charcoal: #1A1D20;
+  --leziva-charcoal-muted: #5A6065;
+
+  /* =========================================================================
+     2. Semantic App Tokens (Light Luxury Mode by Default)
+     ========================================================================= */
+  --background: #FDFBF7;
+  --foreground: #1A1D20;
+  
+  --surface-canvas: #EAE6DE;
+  --surface-card: #FFFFFF;
+  --surface-elevated: #FFFFFF;
+  --surface-subtle: #F6F4F0;
+
+  --primary: #226192;
+  --primary-foreground: #FFFFFF;
+  
+  --accent: #EF8557;
+  --accent-foreground: #FFFFFF;
+
+  --secondary: #EAE6DE;
+  --secondary-foreground: #226192;
+
+  --muted: #EFECE6;
+  --muted-foreground: #667085;
+
+  --border: #E2DDD3;
+  --border-strong: #C9C2B5;
+  --input-border: #D8D2C5;
+  --input-focus-ring: #226192;
+
+  --destructive: #D92D20;
+  --destructive-foreground: #FFFFFF;
+  --success: #079455;
+  --success-foreground: #FFFFFF;
+  --warning: #DC6803;
+  --warning-foreground: #FFFFFF;
+
+  /* =========================================================================
+     3. Typography Tokens
+     ========================================================================= */
+  --font-serif: 'Playfair Display', 'Cormorant Garamond', Georgia, serif;
+  --font-sans: 'Outfit', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  --tracking-luxury: 0.12em;
+  --tracking-editorial: 0.04em;
+  --tracking-tight: -0.015em;
+
+  /* =========================================================================
+     4. Elevation & Shadows
+     ========================================================================= */
+  --shadow-editorial-sm: 0 1px 3px rgba(34, 97, 146, 0.05), 0 1px 2px rgba(26, 29, 32, 0.04);
+  --shadow-editorial-md: 0 4px 16px -2px rgba(34, 97, 146, 0.08), 0 2px 6px -1px rgba(26, 29, 32, 0.05);
+  --shadow-editorial-lg: 0 12px 32px -4px rgba(34, 97, 146, 0.12), 0 4px 12px -2px rgba(26, 29, 32, 0.06);
+  --shadow-editorial-float: 0 20px 48px -8px rgba(22, 67, 102, 0.18);
+
+  /* =========================================================================
+     5. Border Radius & Layout Tokens
+     ========================================================================= */
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-full: 9999px;
+
+  --container-max-width: 1360px;
+  --header-height-desktop: 88px;
+  --header-height-mobile: 64px;
+
+  /* =========================================================================
+     6. Motion & Micro-animations
+     ========================================================================= */
+  --ease-editorial: cubic-bezier(0.16, 1, 0.3, 1);
+  --duration-fast: 150ms;
+  --duration-normal: 250ms;
+  --duration-slow: 400ms;
+}
+
+/* Reduced Motion Override for Accessibility */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

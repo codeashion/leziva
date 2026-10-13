@@ -1,0 +1,46 @@
+@import "tailwindcss";
+@import "../styles/tokens.css";
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-leziva-ivory: var(--leziva-warm-ivory);
+  --color-leziva-blue: var(--leziva-deep-blue);
+  --color-leziva-coral: var(--leziva-coral);
+  --color-leziva-gold: var(--leziva-champagne-gold);
+  --color-leziva-charcoal: var(--leziva-charcoal);
+
+  --font-serif: var(--font-serif);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Luxury Editorial Headings */
+h1, h2, h3, .font-editorial {
+  font-family: var(--font-serif);
+  letter-spacing: var(--tracking-editorial);
+}
+
+/* Subtle selection styling */
+::selection {
+  background-color: #226192;
+  color: #EAE6DE;
+}

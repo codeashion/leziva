@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100%" height="100%">
+  <!-- Circular badge in warm ivory -->
+  <circle cx="50" cy="50" r="48" fill="#EAE6DE" stroke="#226192" stroke-width="2" />
+
+  <!-- Outer Diamond -->
+  <rect x="25" y="25" width="50" height="50" rx="8" transform="rotate(45 50 50)" fill="#226192" stroke="#EF8557" stroke-width="2" />
+  
+  <!-- Stylized 'L' Letterform Monogram in Warm Ivory -->
+  <path d="M 40 32 L 40 68 L 62 68" fill="none" stroke="#EAE6DE" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" />
+  <!-- Coral Accent Dot -->
+  <circle cx="62" cy="52" r="4" fill="#EF8557" />
+</svg>

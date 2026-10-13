@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 120" width="100%" height="100%">
+  <defs>
+    <linearGradient id="lezivaGlow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#226192" />
+      <stop offset="100%" stop-color="#164366" />
+    </linearGradient>
+    <linearGradient id="coralAccent" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#EF8557" />
+      <stop offset="100%" stop-color="#F29E77" />
+    </linearGradient>
+  </defs>
+
+  <!-- Crest Symbol (Left) -->
+  <g id="brand-monogram" transform="translate(10, 10)">
+    <!-- Outer Diamond / Heritage Loom Motif -->
+    <rect x="25" y="25" width="50" height="50" rx="8" transform="rotate(45 50 50)" fill="none" stroke="#226192" stroke-width="2.5" />
+    <rect x="30" y="30" width="40" height="40" rx="6" transform="rotate(45 50 50)" fill="#EAE6DE" fill-opacity="0.6" stroke="#EF8557" stroke-width="1.5" />
+    
+    <!-- Stylized 'L' Letterform Monogram -->
+    <path d="M 40 32 L 40 68 L 62 68" fill="none" stroke="#226192" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" />
+    <!-- Delicate Coral Spark / Thread Accent -->
+    <circle cx="62" cy="56" r="3.2" fill="#EF8557" />
+    <path d="M 46 44 L 56 44" stroke="#EF8557" stroke-width="1.8" stroke-linecap="round" />
+  </g>
+
+  <!-- Typography: LEZIVA (Editorial Luxury Serif) -->
+  <g id="brand-wordmark" transform="translate(130, 72)">
+    <text font-family="'Playfair Display', 'Didot', 'Bodoni MT', 'Cinzel', serif" font-size="52" font-weight="600" letter-spacing="11" fill="#226192">
+      LEZIVA
+    </text>
+  </g>
+
+  <!-- Sub-caption: LUXURY ETHNIC & CONTEMPORARY ATELIER -->
+  <g id="brand-tagline" transform="translate(134, 98)">
+    <text font-family="'Outfit', 'Inter', -apple-system, sans-serif" font-size="9.5" font-weight="500" letter-spacing="5.5" fill="#EF8557">
+      HAUTE COUTURE &amp; ETHNIC ATELIER
+    </text>
+  </g>
+</svg>
