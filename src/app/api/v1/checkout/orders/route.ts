@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { orderService } from "@/server/services/order.service";
+import { razorpayService } from "@/server/services/razorpay.service";
 import { authenticateRequest, getGuestCartIdFromRequest } from "@/server/auth/guards";
 import { successResponse, errorResponse } from "@/utils/api-response";
 
@@ -45,7 +46,7 @@ export async function POST(request: NextRequest) {
                 id: result.razorpayOrder.id,
                 amount: result.razorpayOrder.amount,
                 currency: result.razorpayOrder.currency,
-                keyId: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || process.env.RAZORPAY_KEY_ID || "rzp_test_placeholder_key_id",
+                keyId: razorpayService.getKeyId(),
                 isMock: result.razorpayOrder.isMock,
               }
             : null,

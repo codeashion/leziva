@@ -35,8 +35,11 @@ export class CartService {
     const enrichedItems: CartItem[] = [];
     const warnings: string[] = [];
 
+    const variantIds = storedCart.items.map((i) => i.variantId);
+    const variantMap = await productRepository.findVariantsByIds(variantIds);
+
     for (const item of storedCart.items) {
-      const variantData = await productRepository.findVariantById(item.variantId);
+      const variantData = variantMap.get(item.variantId);
       if (!variantData) {
         warnings.push("An item in your cart is no longer available and was omitted.");
         continue;

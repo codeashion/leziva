@@ -1,24 +1,52 @@
 import "dotenv/config";
+import pg from "pg";
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { logger } from "@/utils/logger";
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
+  pgPool: pg.Pool | undefined;
 };
 
-function createPrismaClient(): PrismaClient {
+function getPgPool(): pg.Pool {
+  if (globalForPrisma.pgPool) {
+    return globalForPrisma.pgPool;
+  }
+
   const connectionString =
     process.env.DATABASE_URL ||
     "postgresql://leziva_user:leziva_pass@localhost:5432/leziva_db?schema=public";
 
-  const adapter = new PrismaPg({ connectionString });
+  const pool = new pg.Pool({
+    connectionString,
+    max: 15,
+    idleTimeoutMillis: 60000,
+    connectionTimeoutMillis: 10000,
+    keepAlive: true,
+    keepAliveInitialDelayMillis: 10000,
+  });
+
+  pool.on("error", (err) => {
+    logger.warn(`Unexpected pg pool client error: ${err.message}`, undefined, "PrismaPgPool");
+  });
+
+  if (process.env.NODE_ENV !== "production") {
+    globalForPrisma.pgPool = pool;
+  }
+
+  return pool;
+}
+
+function createPrismaClient(): PrismaClient {
+  const pool = getPgPool();
+  const adapter = new PrismaPg(pool);
 
   return new PrismaClient({
     adapter,
     log:
       process.env.NODE_ENV === "development"
-        ? ["query", "error", "warn"]
+        ? ["warn", "error"]
         : ["error"],
   });
 }

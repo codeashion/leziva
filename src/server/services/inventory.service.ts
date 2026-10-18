@@ -240,6 +240,7 @@ export class InventoryService {
    */
   private async invalidateInventoryCache(variantId: string): Promise<void> {
     try {
+      productRepository.invalidateVariantCache(variantId);
       await redisService.deleteKey("catalog", `variant:${variantId}`);
       await redisService.deleteKey("catalog", "products:public");
       await redisService.deleteKey("catalog", "products:featured");

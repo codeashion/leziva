@@ -1,4 +1,8 @@
 import { prisma } from "@/server/db/prisma";
+import { redisService } from "@/server/redis/client";
+
+const SESSION_CACHE_NS = "session";
+const SESSION_CACHE_TTL = 300; // 5 minutes
 
 export class SessionRepository {
   async createSession(data: {
@@ -20,7 +24,16 @@ export class SessionRepository {
   }
 
   async findActiveSession(sessionTokenHash: string) {
-    return prisma.session.findFirst({
+    // 1. Check hot cache
+    const cached = await redisService.getJson<any>(SESSION_CACHE_NS, sessionTokenHash);
+    if (cached) {
+      if (new Date(cached.expiresAt) > new Date() && !cached.revokedAt) {
+        return cached;
+      }
+    }
+
+    // 2. Query database
+    const session = await prisma.session.findFirst({
       where: {
         sessionToken: sessionTokenHash,
         revokedAt: null,
@@ -40,9 +53,16 @@ export class SessionRepository {
         },
       },
     });
+
+    if (session) {
+      await redisService.setWithTtl(SESSION_CACHE_NS, sessionTokenHash, session, SESSION_CACHE_TTL);
+    }
+
+    return session;
   }
 
   async revokeSession(sessionTokenHash: string) {
+    await redisService.deleteKey(SESSION_CACHE_NS, sessionTokenHash);
     return prisma.session.updateMany({
       where: {
         sessionToken: sessionTokenHash,

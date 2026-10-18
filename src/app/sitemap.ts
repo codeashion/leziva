@@ -1,5 +1,5 @@
 import { MetadataRoute } from "next";
-import { productRepository } from "@/server/repositories/product.repository";
+import { catalogService } from "@/server/services/catalog.service";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = "https://leziva.com";
@@ -59,8 +59,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   try {
     const [categories, productsResult] = await Promise.all([
-      productRepository.getCategories(),
-      productRepository.findProducts({ limit: 100 }),
+      catalogService.getCategories(),
+      catalogService.searchProducts({ limit: 100 }),
     ]);
 
     const categoryRoutes: MetadataRoute.Sitemap = categories.map((c) => ({

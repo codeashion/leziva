@@ -119,6 +119,7 @@ const DEFAULT_COUPONS: StoredCoupon[] = [
 export class CouponRepository {
   private memoryCoupons = new Map<string, StoredCoupon>();
   private memoryUsages: StoredCouponUsage[] = [];
+  private couponCache = new Map<string, { data: StoredCoupon; expiresAt: number }>();
 
   constructor() {
     for (const c of DEFAULT_COUPONS) {
@@ -128,12 +129,17 @@ export class CouponRepository {
 
   async findByCode(code: string): Promise<StoredCoupon | null> {
     const normalized = code.trim().toUpperCase();
+    const cached = this.couponCache.get(normalized);
+    if (cached && Date.now() < cached.expiresAt) {
+      return cached.data;
+    }
+
     try {
       const dbCoupon = await prisma.coupon.findUnique({
         where: { code: normalized },
       });
       if (dbCoupon) {
-        return {
+        const mapped: StoredCoupon = {
           id: dbCoupon.id,
           code: dbCoupon.code,
           description: dbCoupon.description,
@@ -153,6 +159,8 @@ export class CouponRepository {
           createdAt: dbCoupon.createdAt,
           updatedAt: dbCoupon.updatedAt,
         };
+        this.couponCache.set(normalized, { data: mapped, expiresAt: Date.now() + 60000 });
+        return mapped;
       }
     } catch {
       logger.info("[CouponRepository] Using memory fallback for findByCode");

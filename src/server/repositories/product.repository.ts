@@ -35,6 +35,78 @@ export class ProductRepository {
   private memoryCategories: Category[] = [...CATEGORIES];
   private memoryCollections: Collection[] = [...COLLECTIONS];
 
+  // High-performance variant cache with 60s TTL to eliminate redundant network round trips
+  private variantCache = new Map<string, { data: { variant: ProductVariant; product: Product }; expiresAt: number }>();
+
+  public mapDbProduct(p: any): Product {
+    return {
+      id: p.id,
+      title: p.title,
+      slug: p.slug,
+      shortDescription: p.shortDescription || undefined,
+      description: p.description,
+      fabricDetails: p.fabricDetails || undefined,
+      careInstructions: p.careInstructions || undefined,
+      categoryId: p.categoryId,
+      category: p.category
+        ? {
+            id: p.category.id,
+            name: p.category.name,
+            slug: p.category.slug,
+            description: p.category.description,
+            imageUrl: p.category.imageUrl,
+            isActive: p.category.isActive,
+            sortOrder: p.category.sortOrder,
+          }
+        : undefined,
+      status: p.status as Product["status"],
+      isFeatured: p.isFeatured,
+      isNewArrival: p.isNewArrival,
+      isActive: p.isActive,
+      seoTitle: p.seoTitle || undefined,
+      seoDescription: p.seoDescription || undefined,
+      tags: p.tags,
+      createdAt: p.createdAt,
+      updatedAt: p.updatedAt,
+      collections: (p.collections || []).map((pc: any) => ({
+        id: pc.collection?.id || pc.collectionId,
+        name: pc.collection?.name || "",
+        slug: pc.collection?.slug || "",
+        description: pc.collection?.description || undefined,
+        imageUrl: pc.collection?.imageUrl || undefined,
+        isActive: pc.collection?.isActive ?? true,
+        isFeatured: pc.collection?.isFeatured ?? false,
+        sortOrder: pc.collection?.sortOrder ?? 0,
+      })),
+      images: (p.images || []).map((img: any) => ({
+        id: img.id,
+        productId: img.productId,
+        url: img.url,
+        altText: img.altText,
+        mediaType: img.mediaType,
+        sortOrder: img.sortOrder,
+        isPrimary: img.isPrimary,
+        variantId: img.variantId || undefined,
+      })),
+      variants: (p.variants || []).map((v: any) => ({
+        id: v.id,
+        productId: v.productId,
+        sku: v.sku,
+        title: v.title,
+        size: v.size as Product["variants"][0]["size"],
+        colorName: v.colorName,
+        colorHex: v.colorHex,
+        price: Number(v.price),
+        compareAtPrice: v.compareAtPrice ? Number(v.compareAtPrice) : null,
+        inventoryQuantity: v.inventoryQuantity,
+        lowStockThreshold: v.lowStockThreshold,
+        weightGrams: v.weightGrams,
+        imageUrl: v.imageUrl || undefined,
+        isActive: v.isActive,
+      })),
+    };
+  }
+
   // =========================================================================
   // Categories
   // =========================================================================
@@ -270,72 +342,7 @@ export class ProductRepository {
       ]);
 
       if (dbProducts.length > 0) {
-        const mappedProducts: Product[] = dbProducts.map((p) => ({
-          id: p.id,
-          title: p.title,
-          slug: p.slug,
-          shortDescription: p.shortDescription || undefined,
-          description: p.description,
-          fabricDetails: p.fabricDetails || undefined,
-          careInstructions: p.careInstructions || undefined,
-          categoryId: p.categoryId,
-          category: p.category
-            ? {
-                id: p.category.id,
-                name: p.category.name,
-                slug: p.category.slug,
-                description: p.category.description,
-                imageUrl: p.category.imageUrl,
-                isActive: p.category.isActive,
-                sortOrder: p.category.sortOrder,
-              }
-            : undefined,
-          status: p.status as Product["status"],
-          isFeatured: p.isFeatured,
-          isNewArrival: p.isNewArrival,
-          isActive: p.isActive,
-          seoTitle: p.seoTitle || undefined,
-          seoDescription: p.seoDescription || undefined,
-          tags: p.tags,
-          createdAt: p.createdAt,
-          updatedAt: p.updatedAt,
-          collections: p.collections.map((pc) => ({
-            id: pc.collection.id,
-            name: pc.collection.name,
-            slug: pc.collection.slug,
-            description: pc.collection.description,
-            imageUrl: pc.collection.imageUrl,
-            isActive: pc.collection.isActive,
-            isFeatured: pc.collection.isFeatured,
-            sortOrder: pc.collection.sortOrder,
-          })),
-          images: p.images.map((img) => ({
-            id: img.id,
-            productId: img.productId,
-            url: img.url,
-            altText: img.altText,
-            mediaType: img.mediaType,
-            sortOrder: img.sortOrder,
-            isPrimary: img.isPrimary,
-            variantId: img.variantId || undefined,
-          })),
-          variants: p.variants.map((v) => ({
-            id: v.id,
-            productId: v.productId,
-            sku: v.sku,
-            title: v.title,
-            size: v.size as Product["variants"][0]["size"],
-            colorName: v.colorName,
-            colorHex: v.colorHex,
-            price: Number(v.price),
-            compareAtPrice: v.compareAtPrice ? Number(v.compareAtPrice) : null,
-            inventoryQuantity: v.inventoryQuantity,
-            lowStockThreshold: v.lowStockThreshold,
-            weightGrams: v.weightGrams,
-            imageUrl: v.imageUrl || undefined,
-            isActive: v.isActive,
-          })),
-        }));
+        const mappedProducts: Product[] = dbProducts.map((p) => this.mapDbProduct(p));
 
         // Handle price sorting in memory if needed
         if (sort === "price_asc") {
@@ -493,72 +500,7 @@ export class ProductRepository {
           return null; // Don't leak drafts or archived items
         }
 
-        return {
-          id: dbProduct.id,
-          title: dbProduct.title,
-          slug: dbProduct.slug,
-          shortDescription: dbProduct.shortDescription || undefined,
-          description: dbProduct.description,
-          fabricDetails: dbProduct.fabricDetails || undefined,
-          careInstructions: dbProduct.careInstructions || undefined,
-          categoryId: dbProduct.categoryId,
-          category: dbProduct.category
-            ? {
-                id: dbProduct.category.id,
-                name: dbProduct.category.name,
-                slug: dbProduct.category.slug,
-                description: dbProduct.category.description,
-                imageUrl: dbProduct.category.imageUrl,
-                isActive: dbProduct.category.isActive,
-                sortOrder: dbProduct.category.sortOrder,
-              }
-            : undefined,
-          status: dbProduct.status as Product["status"],
-          isFeatured: dbProduct.isFeatured,
-          isNewArrival: dbProduct.isNewArrival,
-          isActive: dbProduct.isActive,
-          seoTitle: dbProduct.seoTitle || undefined,
-          seoDescription: dbProduct.seoDescription || undefined,
-          tags: dbProduct.tags,
-          createdAt: dbProduct.createdAt,
-          updatedAt: dbProduct.updatedAt,
-          collections: dbProduct.collections.map((pc) => ({
-            id: pc.collection.id,
-            name: pc.collection.name,
-            slug: pc.collection.slug,
-            description: pc.collection.description,
-            imageUrl: pc.collection.imageUrl,
-            isActive: pc.collection.isActive,
-            isFeatured: pc.collection.isFeatured,
-            sortOrder: pc.collection.sortOrder,
-          })),
-          images: dbProduct.images.map((img) => ({
-            id: img.id,
-            productId: img.productId,
-            url: img.url,
-            altText: img.altText,
-            mediaType: img.mediaType,
-            sortOrder: img.sortOrder,
-            isPrimary: img.isPrimary,
-            variantId: img.variantId || undefined,
-          })),
-          variants: dbProduct.variants.map((v) => ({
-            id: v.id,
-            productId: v.productId,
-            sku: v.sku,
-            title: v.title,
-            size: v.size as Product["variants"][0]["size"],
-            colorName: v.colorName,
-            colorHex: v.colorHex,
-            price: Number(v.price),
-            compareAtPrice: v.compareAtPrice ? Number(v.compareAtPrice) : null,
-            inventoryQuantity: v.inventoryQuantity,
-            lowStockThreshold: v.lowStockThreshold,
-            weightGrams: v.weightGrams,
-            imageUrl: v.imageUrl || undefined,
-            isActive: v.isActive,
-          })),
-        };
+        return this.mapDbProduct(dbProduct);
       }
     } catch {
       logger.info("Using fallback product lookup for slug", { slug }, "ProductRepository");
@@ -580,13 +522,13 @@ export class ProductRepository {
         where: { id },
         include: {
           category: true,
-          images: true,
-          variants: true,
+          images: { orderBy: { sortOrder: "asc" } },
+          variants: { where: { isActive: true } },
           collections: { include: { collection: true } },
         },
       });
       if (dbProduct) {
-        return this.findBySlug(dbProduct.slug, true);
+        return this.mapDbProduct(dbProduct);
       }
     } catch {
       // Fallback
@@ -599,17 +541,33 @@ export class ProductRepository {
   }
 
   async findVariantById(variantId: string): Promise<{ variant: ProductVariant; product: Product } | null> {
+    const cached = this.variantCache.get(variantId);
+    if (cached && Date.now() < cached.expiresAt) {
+      return cached.data;
+    }
+
     try {
       const dbVariant = await prisma.productVariant.findUnique({
         where: { id: variantId },
-        include: { product: true },
+        include: {
+          product: {
+            include: {
+              category: true,
+              images: { orderBy: { sortOrder: "asc" } },
+              variants: { where: { isActive: true } },
+              collections: { include: { collection: true } },
+            },
+          },
+        },
       });
 
-      if (dbVariant) {
-        const product = await this.findBySlug(dbVariant.product.slug, true);
-        if (product) {
-          const v = product.variants.find((vr) => vr.id === variantId || vr.sku === dbVariant.sku);
-          if (v) return { variant: v, product };
+      if (dbVariant && dbVariant.product) {
+        const product = this.mapDbProduct(dbVariant.product);
+        const v = product.variants.find((vr) => vr.id === variantId || vr.sku === dbVariant.sku);
+        if (v) {
+          const result = { variant: v, product };
+          this.variantCache.set(variantId, { data: result, expiresAt: Date.now() + 60000 });
+          return result;
         }
       }
     } catch {
@@ -626,6 +584,84 @@ export class ProductRepository {
     return null;
   }
 
+  /**
+   * Batch variant lookup to avoid query waterfall cascades.
+   * Resolves multiple variants in a single database query.
+   */
+  async findVariantsByIds(variantIds: string[]): Promise<Map<string, { variant: ProductVariant; product: Product }>> {
+    const resultMap = new Map<string, { variant: ProductVariant; product: Product }>();
+    const missingIds: string[] = [];
+    const now = Date.now();
+
+    for (const vid of variantIds) {
+      const cached = this.variantCache.get(vid);
+      if (cached && now < cached.expiresAt) {
+        resultMap.set(vid, cached.data);
+      } else {
+        missingIds.push(vid);
+      }
+    }
+
+    if (missingIds.length === 0) {
+      return resultMap;
+    }
+
+    try {
+      const dbVariants = await prisma.productVariant.findMany({
+        where: { id: { in: missingIds } },
+        include: {
+          product: {
+            include: {
+              category: true,
+              images: { orderBy: { sortOrder: "asc" } },
+              variants: { where: { isActive: true } },
+              collections: { include: { collection: true } },
+            },
+          },
+        },
+      });
+
+      for (const dbVariant of dbVariants) {
+        if (dbVariant && dbVariant.product) {
+          const product = this.mapDbProduct(dbVariant.product);
+          const v = product.variants.find((vr) => vr.id === dbVariant.id || vr.sku === dbVariant.sku);
+          if (v) {
+            const entry = { variant: v, product };
+            resultMap.set(dbVariant.id, entry);
+            this.variantCache.set(dbVariant.id, { data: entry, expiresAt: now + 60000 });
+          }
+        }
+      }
+    } catch {
+      // Fallback
+    }
+
+    for (const vid of missingIds) {
+      if (!resultMap.has(vid)) {
+        for (const p of this.memoryProducts) {
+          const v = p.variants.find((vr) => vr.id === vid);
+          if (v) {
+            resultMap.set(vid, { variant: v, product: p });
+            break;
+          }
+        }
+      }
+    }
+
+    return resultMap;
+  }
+
+  /**
+   * Invalidate variant cache when inventory or price changes.
+   */
+  invalidateVariantCache(variantId?: string): void {
+    if (variantId) {
+      this.variantCache.delete(variantId);
+    } else {
+      this.variantCache.clear();
+    }
+  }
+
   async findRelated(productId: string, categoryId: string, limit: number = 3): Promise<Product[]> {
     const all = await this.findProducts({ limit: 12 });
     return all.products
@@ -638,6 +674,7 @@ export class ProductRepository {
   // =========================================================================
 
   updateMemoryVariantStock(variantId: string, newQuantity: number): boolean {
+    this.invalidateVariantCache(variantId);
     for (const p of this.memoryProducts) {
       const v = p.variants.find((vr) => vr.id === variantId);
       if (v) {

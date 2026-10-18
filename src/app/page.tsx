@@ -3,16 +3,16 @@ import Image from "next/image";
 import Link from "next/link";
 import { connection } from "next/server";
 import { ArrowRight, Sparkles, Shield, RefreshCw, Truck, Award } from "lucide-react";
-import { productRepository } from "@/server/repositories/product.repository";
+import { catalogService } from "@/server/services/catalog.service";
 import { ProductCard } from "@/components/catalog/product-card";
 import { Button } from "@/components/ui/button";
 
 async function HomeContent() {
   await connection();
   const [categories, featuredResult, bestsellersResult] = await Promise.all([
-    productRepository.getCategories(),
-    productRepository.findProducts({ featured: true, limit: 4 }),
-    productRepository.findProducts({ sort: "newest", limit: 4 }),
+    catalogService.getCategories(),
+    catalogService.searchProducts({ featured: true, limit: 4 }),
+    catalogService.searchProducts({ sort: "newest", limit: 4 }),
   ]);
 
   return (

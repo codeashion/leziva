@@ -87,13 +87,16 @@ export class PricingService {
     let totalItemCount = 0;
     const productIds: string[] = [];
 
-    // Step 1: Validate each variant and get authoritative current price
+    // Step 1: Batch validate each variant and get authoritative current price
+    const variantIds = input.items.map((i) => i.variantId);
+    const variantMap = await productRepository.findVariantsByIds(variantIds);
+
     for (const item of input.items) {
       if (item.quantity <= 0) {
         throw new BadRequestError(`Invalid quantity (${item.quantity}) for item`);
       }
 
-      const variantRecord = await productRepository.findVariantById(item.variantId);
+      const variantRecord = variantMap.get(item.variantId);
       if (!variantRecord) {
         throw new BadRequestError(`Product variant "${item.variantId}" no longer exists`);
       }

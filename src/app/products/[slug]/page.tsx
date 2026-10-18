@@ -1,23 +1,19 @@
 import React, { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { Metadata } from "next";
-import { productRepository } from "@/server/repositories/product.repository";
+import { catalogService } from "@/server/services/catalog.service";
 import { ProductDetailContent } from "@/components/catalog/product-detail-content";
 
 interface ProductPageProps {
   params: Promise<{ slug: string }>;
 }
 
-export async function generateStaticParams() {
-  const result = await productRepository.findProducts({ limit: 100 });
-  return result.products.map((p) => ({ slug: p.slug }));
-}
-
 export async function generateMetadata({
   params,
 }: ProductPageProps): Promise<Metadata> {
   const { slug } = await params;
-  const product = await productRepository.findBySlug(slug);
+  const detail = await catalogService.getProductBySlug(slug);
+  const product = detail?.product;
 
   if (!product) {
     return {
@@ -46,15 +42,13 @@ export async function generateMetadata({
 }
 
 async function ProductPageLoader({ slug }: { slug: string }) {
-  const product = await productRepository.findBySlug(slug);
+  const detail = await catalogService.getProductBySlug(slug);
 
-  if (!product) {
+  if (!detail || !detail.product) {
     notFound();
   }
 
-  const related = await productRepository.findRelated(product.id, product.categoryId, 3);
-
-  return <ProductDetailContent product={product} relatedProducts={related} />;
+  return <ProductDetailContent product={detail.product} relatedProducts={detail.related} />;
 }
 
 export default async function ProductPage({ params }: ProductPageProps) {

@@ -178,6 +178,16 @@ export default function CheckoutPage() {
     loadUserData();
   }, []);
 
+  // Pre-load Razorpay checkout script on checkout mount for instantaneous modal response
+  useEffect(() => {
+    if (typeof window !== "undefined" && !window.Razorpay) {
+      const script = document.createElement("script");
+      script.src = "https://checkout.razorpay.com/v1/checkout.js";
+      script.async = true;
+      document.body.appendChild(script);
+    }
+  }, []);
+
   // Fetch Authoritative Server Quote
   const fetchAuthoritativeQuote = useCallback(
     async (codeToApply?: string | null, methodToUse?: "RAZORPAY" | "COD") => {

@@ -2,7 +2,7 @@ import React, { Suspense } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Metadata } from "next";
-import { productRepository } from "@/server/repositories/product.repository";
+import { catalogService } from "@/server/services/catalog.service";
 import { ShopContent } from "@/components/catalog/shop-content";
 import { ChevronRight } from "lucide-react";
 
@@ -16,7 +16,7 @@ interface CategoryPageProps {
 }
 
 export async function generateStaticParams() {
-  const categories = await productRepository.getCategories();
+  const categories = await catalogService.getCategories();
   return categories.map((c) => ({ slug: c.slug }));
 }
 
@@ -26,7 +26,7 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const category = await productRepository.getCategoryBySlug(slug);
+  const category = await catalogService.getCategoryBySlug(slug);
 
   if (!category) {
     return {
@@ -56,15 +56,15 @@ async function CategoryPageLoader({
   const query = await searchParams;
 
   const [category, categories] = await Promise.all([
-    productRepository.getCategoryBySlug(slug),
-    productRepository.getCategories(),
+    catalogService.getCategoryBySlug(slug),
+    catalogService.getCategories(),
   ]);
 
   if (!category) {
     notFound();
   }
 
-  const result = await productRepository.findProducts({
+  const result = await catalogService.searchProducts({
     category: slug,
     sort: query.sort || "recommended",
     minPrice: query.minPrice ? Number(query.minPrice) : undefined,

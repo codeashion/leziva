@@ -36,10 +36,26 @@ export class RazorpayService {
   private memoryWebhookEvents = new Set<string>();
 
   private getCredentials() {
-    const env = getServerEnv();
-    const keyId = env.RAZORPAY_KEY_ID;
-    const keySecret = env.RAZORPAY_KEY_SECRET;
-    const webhookSecret = env.RAZORPAY_WEBHOOK_SECRET;
+    // Read directly from live process.env first to support dynamic env updates
+    let keyId = process.env.RAZORPAY_KEY_ID || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || "";
+    let keySecret = process.env.RAZORPAY_KEY_SECRET || "";
+    let webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET || "";
+
+    if (!keyId || !keySecret) {
+      try {
+        const env = getServerEnv();
+        if (!keyId && env.RAZORPAY_KEY_ID) keyId = env.RAZORPAY_KEY_ID;
+        if (!keySecret && env.RAZORPAY_KEY_SECRET) keySecret = env.RAZORPAY_KEY_SECRET;
+        if (!webhookSecret && env.RAZORPAY_WEBHOOK_SECRET) webhookSecret = env.RAZORPAY_WEBHOOK_SECRET;
+      } catch {
+        // Fallback to process.env if getServerEnv is called in script/standalone context
+      }
+    }
+
+    keyId = keyId.trim().replace(/^["']|["']$/g, "").trim();
+    keySecret = keySecret.trim().replace(/^["']|["']$/g, "").trim();
+    webhookSecret = webhookSecret.trim().replace(/^["']|["']$/g, "").trim();
+
     const isPlaceholder =
       !keyId ||
       keyId.includes("placeholder") ||
@@ -47,6 +63,14 @@ export class RazorpayService {
       keySecret.includes("placeholder");
 
     return { keyId, keySecret, webhookSecret, isPlaceholder };
+  }
+
+  /**
+   * Returns the clean active Razorpay Key ID for client modal integration
+   */
+  public getKeyId(): string {
+    const { keyId } = this.getCredentials();
+    return keyId;
   }
 
   /**
@@ -154,7 +178,14 @@ export class RazorpayService {
       return false;
     }
 
-    const { keySecret } = this.getCredentials();
+    const { keySecret, isPlaceholder } = this.getCredentials();
+
+    // If sandbox / placeholder mode and mock bypass signature is provided
+    if (isPlaceholder && razorpaySignature === "mock_signature_bypass") {
+      logger.info(`[RazorpayService] Sandbox mock signature accepted for ${razorpayOrderId}`);
+      return true;
+    }
+
     const secretToUse = keySecret || "mock_secret";
 
     try {

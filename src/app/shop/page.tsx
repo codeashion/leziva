@@ -1,7 +1,7 @@
 import React, { Suspense } from "react";
 import Link from "next/link";
 import { Metadata } from "next";
-import { productRepository } from "@/server/repositories/product.repository";
+import { catalogService } from "@/server/services/catalog.service";
 import { ShopContent } from "@/components/catalog/shop-content";
 import { ChevronRight } from "lucide-react";
 
@@ -32,8 +32,8 @@ async function ShopPageLoader({ searchParams }: { searchParams: Promise<Awaited<
   const page = params.page ? parseInt(params.page, 10) : 1;
 
   const [categories, result] = await Promise.all([
-    productRepository.getCategories(),
-    productRepository.findProducts({
+    catalogService.getCategories(),
+    catalogService.searchProducts({
       category,
       sort,
       search,
