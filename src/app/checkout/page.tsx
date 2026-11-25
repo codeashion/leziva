@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import Script from "next/script";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "motion/react";
 import { useStore } from "@/context/StoreContext";
@@ -13,6 +14,34 @@ import {
   ShoppingBag,
 } from "lucide-react";
 import { LUXURY_EASE } from "@/lib/animations";
+
+interface RazorpayHandlerResponse {
+  razorpay_payment_id: string;
+  razorpay_order_id: string;
+  razorpay_signature: string;
+}
+
+interface RazorpayFailureResponse {
+  error?: {
+    description?: string;
+    reason?: string;
+  };
+}
+
+interface RazorpayInstance {
+  open: () => void;
+  on: (event: string, cb: (res: RazorpayFailureResponse) => void) => void;
+}
+
+interface RazorpayConstructor {
+  new (options: Record<string, unknown>): RazorpayInstance;
+}
+
+declare global {
+  interface Window {
+    Razorpay?: RazorpayConstructor;
+  }
+}
 
 const INDIAN_STATES = [
   "Andhra Pradesh",
@@ -44,18 +73,20 @@ const INDIAN_STATES = [
 export default function CheckoutPage() {
   const router = useRouter();
   const {
+    brandConfig,
     cart,
     cartSubtotal,
     discountAmount,
     taxAmount,
-    cartTotal,
     appliedCoupon,
     createOrder,
+    velocityConfig,
     showToast,
   } = useStore();
 
   const [activeStep, setActiveStep] = useState<1 | 2 | 3>(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isRazorpayReady, setIsRazorpayReady] = useState(false);
 
   // Address Form State
   const [address, setAddress] = useState({
@@ -76,7 +107,101 @@ export default function CheckoutPage() {
   const [paymentMethod, setPaymentMethod] = useState<"razorpay" | "card" | "cod">("razorpay");
 
   const shippingCost = shippingMethod === "express" ? 99 : 0;
-  const finalPayable = cartTotal + shippingCost;
+  const taxableAmount = Math.max(0, cartSubtotal - discountAmount);
+  const finalPayable = taxableAmount + shippingCost;
+
+  const buildOrderPayload = () => ({
+    customer: address,
+    items: cart.map((item) => ({
+      productId: item.product.id,
+      productName: item.product.name,
+      productImage: item.product.images[0],
+      color: item.selectedColor,
+      size: item.selectedSize,
+      price: item.product.price,
+      quantity: item.quantity,
+    })),
+    subtotal: cartSubtotal,
+    discount: discountAmount,
+    couponCode: appliedCoupon?.code,
+    shippingFee: shippingCost,
+    tax: taxAmount,
+    total: finalPayable,
+    shippingMethod,
+    paymentMethod,
+    paymentStatus: (paymentMethod === "cod" ? "pending" : "paid") as "pending" | "paid",
+    orderStatus: "Processing" as const,
+    estimatedDelivery: shippingMethod === "express" ? "1-2 Business Days" : "3-5 Business Days",
+  });
+
+  const finalizeServerOrder = async (razorpayProof?: RazorpayHandlerResponse) => {
+    const res = await fetch("/api/orders", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        orderData: buildOrderPayload(),
+        razorpay: razorpayProof,
+        velocityConfig,
+      }),
+    });
+
+    const data = await res.json();
+    if (!res.ok || !data.success || !data.order) {
+      throw new Error(data?.message || "Failed to place order");
+    }
+
+    const savedOrder = createOrder(data.order);
+
+    if (data.velocity?.synced) {
+      showToast("Order confirmed & synced to Velocity Shipping!", "success");
+    } else if (data.velocity?.error) {
+      showToast(
+        `Order confirmed! Velocity sync pending: ${data.velocity.error}`,
+        "info"
+      );
+    } else {
+      showToast("Order placed successfully!", "success");
+    }
+
+    router.push(`/order-confirmation/${savedOrder.id}`);
+  };
+
+  const ensureRazorpayScript = async (): Promise<RazorpayConstructor> => {
+    if (typeof window !== "undefined" && window.Razorpay) {
+      return window.Razorpay;
+    }
+
+    await new Promise<void>((resolve, reject) => {
+      const existing = document.querySelector<HTMLScriptElement>(
+        'script[src="https://checkout.razorpay.com/v1/checkout.js"]'
+      );
+      if (existing) {
+        if (window.Razorpay) {
+          resolve();
+          return;
+        }
+        existing.addEventListener("load", () => resolve(), { once: true });
+        existing.addEventListener(
+          "error",
+          () => reject(new Error("Failed to load Razorpay Checkout SDK")),
+          { once: true }
+        );
+        return;
+      }
+
+      const script = document.createElement("script");
+      script.src = "https://checkout.razorpay.com/v1/checkout.js";
+      script.async = true;
+      script.onload = () => resolve();
+      script.onerror = () => reject(new Error("Failed to load Razorpay Checkout SDK"));
+      document.body.appendChild(script);
+    });
+
+    if (!window.Razorpay) {
+      throw new Error("Razorpay Checkout SDK unavailable. Please disable ad-blockers and retry.");
+    }
+    return window.Razorpay;
+  };
 
   const handleAddressSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -88,39 +213,113 @@ export default function CheckoutPage() {
   };
 
   const handlePlaceOrder = async () => {
+    if (isSubmitting) return;
     setIsSubmitting(true);
 
     try {
-      // Simulate fast secure server-verified order
-      const newOrder = createOrder({
-        customer: address,
-        items: cart.map((item) => ({
-          productId: item.product.id,
-          productName: item.product.name,
-          productImage: item.product.images[0],
-          color: item.selectedColor,
-          size: item.selectedSize,
-          price: item.product.price,
-          quantity: item.quantity,
-        })),
-        subtotal: cartSubtotal,
-        discount: discountAmount,
-        couponCode: appliedCoupon?.code,
-        shippingFee: shippingCost,
-        tax: taxAmount,
-        total: finalPayable,
-        shippingMethod,
-        paymentMethod,
-        paymentStatus: paymentMethod === "cod" ? "pending" : "paid",
-        orderStatus: "Processing",
-        estimatedDelivery: "3-5 Business Days",
+      // Cash on Delivery skips Razorpay popup
+      if (paymentMethod === "cod") {
+        await finalizeServerOrder();
+        return;
+      }
+
+      // 1. Load Razorpay Checkout JS
+      const RazorpaySDK = await ensureRazorpayScript();
+
+      // 2. Create real Razorpay Order on server
+      const orderRes = await fetch("/api/checkout/razorpay", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          items: cart.map((item) => ({
+            productId: item.product.id,
+            quantity: item.quantity,
+            color: item.selectedColor,
+            size: item.selectedSize,
+          })),
+          address,
+          couponCode: appliedCoupon?.code,
+          shippingMethod,
+        }),
       });
 
-      showToast("Payment verified! Order placed successfully.", "success");
-      router.push(`/order-confirmation/${newOrder.id}`);
-    } catch {
-      showToast("Error processing order. Please try again.", "error");
+      const orderData = await orderRes.json();
+      if (!orderRes.ok || !orderData.success || !orderData.order?.id) {
+        throw new Error(orderData?.message || "Unable to initiate Razorpay payment");
+      }
+
+      // 3. Open Razorpay Checkout Modal so customer can choose UPI / Card / NetBanking / Wallet
+      const options: Record<string, unknown> = {
+        key: orderData.keyId,
+        amount: orderData.order.amount,
+        currency: orderData.order.currency || "INR",
+        name: brandConfig.name || "BRAND",
+        description: `Order payment (${cart.length} item${cart.length > 1 ? "s" : ""})`,
+        order_id: orderData.order.id,
+        prefill: {
+          name: address.fullName,
+          email: address.email,
+          contact: address.phone.replace(/\D/g, "").slice(-10),
+        },
+        notes: {
+          shipping_method: shippingMethod,
+          city: address.city,
+        },
+        theme: {
+          color: "#102B3A",
+        },
+        modal: {
+          ondismiss: () => {
+            setIsSubmitting(false);
+            showToast("Payment cancelled. Select a payment method to try again.", "info");
+          },
+        },
+        handler: async (response: RazorpayHandlerResponse) => {
+          try {
+            // 4. Verify signature on server
+            const verifyRes = await fetch("/api/checkout/razorpay", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                action: "verify",
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+              }),
+            });
+
+            const verifyData = await verifyRes.json();
+            if (!verifyRes.ok || !verifyData.success) {
+              throw new Error(verifyData?.message || "Payment verification failed");
+            }
+
+            // 5. Create order & push to Velocity Shipping
+            await finalizeServerOrder(response);
+          } catch (err) {
+            setIsSubmitting(false);
+            showToast(
+              err instanceof Error ? err.message : "Payment verification error",
+              "error"
+            );
+          }
+        },
+      };
+
+      const rzp = new RazorpaySDK(options);
+      rzp.on("payment.failed", (failure: RazorpayFailureResponse) => {
+        setIsSubmitting(false);
+        showToast(
+          failure?.error?.description || "Payment failed. Please try another option.",
+          "error"
+        );
+      });
+      rzp.open();
+    } catch (err) {
       setIsSubmitting(false);
+      showToast(
+        err instanceof Error ? err.message : "Error processing order. Please try again.",
+        "error"
+      );
     }
   };
 
@@ -144,11 +343,17 @@ export default function CheckoutPage() {
 
   return (
     <div className="bg-[#EAE6DE] min-h-screen pb-24">
+      <Script
+        src="https://checkout.razorpay.com/v1/checkout.js"
+        strategy="afterInteractive"
+        onLoad={() => setIsRazorpayReady(true)}
+      />
+
       {/* Checkout Header */}
       <div className="bg-[#F8F5EF] border-b border-[#DED6CB] py-4">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
           <Link href="/" className="font-serif text-2xl font-bold tracking-[0.2em] text-[#102B3A]">
-            BRAND
+            {brandConfig.name}
           </Link>
           <div className="flex items-center gap-1.5 text-xs text-[#77716A]">
             <Lock className="w-3.5 h-3.5 text-[#168454]" />
@@ -482,7 +687,8 @@ export default function CheckoutPage() {
                       3. Payment Method
                     </h2>
                     <span className="text-xs text-[#168454] font-semibold flex items-center gap-1">
-                      <ShieldCheck className="w-3.5 h-3.5" /> Razorpay Verified
+                      <ShieldCheck className="w-3.5 h-3.5" />{" "}
+                      {isRazorpayReady ? "Razorpay Ready" : "Razorpay Verified"}
                     </span>
                   </div>
 
@@ -513,7 +719,7 @@ export default function CheckoutPage() {
                             </span>
                           </div>
                           <p className="text-[11px] text-[#77716A] mt-1">
-                            Instant zero-fee transfer via any Indian UPI app or bank account.
+                            Opens Razorpay Checkout so you can pick UPI, Cards, Wallets, or NetBanking.
                           </p>
                         </div>
                       </div>
@@ -540,7 +746,7 @@ export default function CheckoutPage() {
                             Credit or Debit Card (Visa, Mastercard, RuPay, Amex)
                           </p>
                           <p className="text-[11px] text-[#77716A] mt-1">
-                            International and Indian bank cards with 3D Secure OTP authentication.
+                            International and Indian bank cards via Razorpay 3D Secure OTP authentication.
                           </p>
                         </div>
                       </div>
@@ -585,14 +791,18 @@ export default function CheckoutPage() {
                       <Sparkles className="w-4 h-4" />
                       <span>
                         {isSubmitting
-                          ? "Verifying Payment..."
-                          : `Pay ₹${finalPayable.toLocaleString("en-IN")} & Confirm Order`}
+                          ? paymentMethod === "cod"
+                            ? "Confirming Order..."
+                            : "Opening Razorpay..."
+                          : paymentMethod === "cod"
+                          ? `Place COD Order • ₹${finalPayable.toLocaleString("en-IN")}`
+                          : `Pay ₹${finalPayable.toLocaleString("en-IN")} via Razorpay`}
                       </span>
                       <ArrowRight className="w-4 h-4" />
                     </motion.button>
 
                     <p className="text-[11px] text-[#77716A] text-center">
-                      By clicking &ldquo;Pay & Confirm Order&rdquo;, you agree to our Terms of Sale and 7-day return policy.
+                      By clicking above, you agree to our Terms of Sale and 7-day return policy.
                     </p>
                   </div>
                 </motion.div>

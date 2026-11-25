@@ -24,7 +24,13 @@ interface StoreContextType {
   // Cart
   cart: CartItem[];
   cartCount: number;
-  addToCart: (product: Product, selectedColor?: string, selectedSize?: string, quantity?: number) => void;
+  addToCart: (
+    product: Product,
+    selectedColor?: string,
+    selectedSize?: string,
+    quantity?: number,
+    openDrawer?: boolean
+  ) => void;
   removeFromCart: (productId: string, color: string, size: string) => void;
   updateQuantity: (productId: string, color: string, size: string, quantity: number) => void;
   clearCart: () => void;
@@ -56,8 +62,28 @@ interface StoreContextType {
 
   // Orders
   orders: Order[];
-  createOrder: (order: Omit<Order, "id" | "orderNumber" | "createdAt">) => Order;
+  createOrder: (
+    order:
+      | Order
+      | (Omit<Order, "id" | "orderNumber" | "createdAt"> & {
+          id?: string;
+          orderNumber?: string;
+          createdAt?: string;
+        })
+  ) => Order;
   updateOrderStatus: (orderId: string, status: Order["orderStatus"], trackingNumber?: string) => void;
+
+  // Velocity Shipping Config
+  velocityConfig: {
+    warehouseId: string;
+    pickupLocation: string;
+    channelId: string;
+  };
+  updateVelocityConfig: (cfg: {
+    warehouseId?: string;
+    pickupLocation?: string;
+    channelId?: string;
+  }) => void;
 
   // Toast
   toast: { message: string; type: "success" | "info" | "error" } | null;
@@ -95,6 +121,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   // Orders
   const [orders, setOrders] = useState<Order[]>(INITIAL_ORDERS);
 
+  // Velocity Shipping Config (optional override for .env.local warehouse settings)
+  const [velocityConfig, setVelocityConfig] = useState({
+    warehouseId: "",
+    pickupLocation: "",
+    channelId: "",
+  });
+
   // Toast
   const [toast, setToast] = useState<{ message: string; type: "success" | "info" | "error" } | null>(null);
 
@@ -115,6 +148,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
       const savedBrand = localStorage.getItem("brand_config");
       if (savedBrand) setBrandConfig(JSON.parse(savedBrand));
+
+      const savedVelocity = localStorage.getItem("brand_velocity_config");
+      if (savedVelocity) setVelocityConfig(JSON.parse(savedVelocity));
     } catch (e) {
       console.warn("Storage hydration skipped:", e);
     }
@@ -185,7 +221,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     product: Product,
     selectedColor?: string,
     selectedSize?: string,
-    quantity: number = 1
+    quantity: number = 1,
+    openDrawer: boolean = true
   ) => {
     const color = selectedColor || product.colorName;
     const size = selectedSize || product.sizes[0] || "Free Size";
@@ -208,7 +245,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     });
 
     showToast(`Added "${product.name}" to your bag`, "success");
-    setIsCartOpen(true);
+    if (openDrawer) {
+      setIsCartOpen(true);
+    }
   };
 
   const removeFromCart = (productId: string, color: string, size: string) => {
@@ -311,18 +350,43 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const closeQuickView = () => setQuickViewProduct(null);
 
   // Orders
-  const createOrder = (orderData: Omit<Order, "id" | "orderNumber" | "createdAt">): Order => {
+  const createOrder = (
+    orderData:
+      | Order
+      | (Omit<Order, "id" | "orderNumber" | "createdAt"> & {
+          id?: string;
+          orderNumber?: string;
+          createdAt?: string;
+        })
+  ): Order => {
     const randomNum = Math.floor(1000 + Math.random() * 9000);
     const newOrder: Order = {
       ...orderData,
-      id: `ord-${Date.now()}`,
-      orderNumber: `#${randomNum}`,
-      createdAt: new Date().toISOString().replace("T", " ").substring(0, 16),
+      id: orderData.id || `ord-${Date.now()}`,
+      orderNumber: orderData.orderNumber || `#${randomNum}`,
+      createdAt:
+        orderData.createdAt ||
+        new Date().toISOString().replace("T", " ").substring(0, 16),
     };
 
     setOrders((prev) => [newOrder, ...prev]);
     clearCart();
     return newOrder;
+  };
+
+  const updateVelocityConfig = (cfg: {
+    warehouseId?: string;
+    pickupLocation?: string;
+    channelId?: string;
+  }) => {
+    setVelocityConfig((prev) => {
+      const updated = { ...prev, ...cfg };
+      try {
+        localStorage.setItem("brand_velocity_config", JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+    showToast("Velocity Shipping settings saved", "success");
   };
 
   const updateOrderStatus = (
@@ -384,6 +448,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         orders,
         createOrder,
         updateOrderStatus,
+        velocityConfig,
+        updateVelocityConfig,
         toast,
         showToast,
       }}

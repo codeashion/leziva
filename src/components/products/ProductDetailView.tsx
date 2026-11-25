@@ -69,7 +69,7 @@ export function ProductDetailView({ product, relatedProducts }: ProductDetailVie
   };
 
   const handleBuyNow = () => {
-    addToCart(product, selectedColor, selectedSize, quantity);
+    addToCart(product, selectedColor, selectedSize, quantity, false);
     router.push("/checkout");
   };
 

@@ -88,6 +88,14 @@ export interface Order {
   orderStatus: "Processing" | "Shipped" | "Delivered" | "Cancelled";
   trackingNumber?: string;
   estimatedDelivery: string;
+  razorpayOrderId?: string;
+  razorpayPaymentId?: string;
+  velocityOrderId?: string;
+  velocityShipmentId?: string;
+  velocityAwbCode?: string;
+  velocityCourierName?: string;
+  velocitySynced?: boolean;
+  velocityError?: string;
 }
 
 export interface Coupon {

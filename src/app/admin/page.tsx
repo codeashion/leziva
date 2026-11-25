@@ -40,6 +40,8 @@ export default function AdminDashboardPage() {
     deleteProduct,
     orders,
     updateOrderStatus,
+    velocityConfig,
+    updateVelocityConfig,
     appliedCoupon,
     showToast,
   } = useStore();
@@ -78,6 +80,23 @@ export default function AdminDashboardPage() {
   const [settingsBrandName, setSettingsBrandName] = useState(brandConfig.name);
   const [settingsAnnouncement, setSettingsAnnouncement] = useState(brandConfig.announcement);
   const [settingsThreshold, setSettingsThreshold] = useState(brandConfig.freeShippingThreshold);
+
+  // Velocity settings & warehouse creator state
+  const [velWarehouseId, setVelWarehouseId] = useState(velocityConfig.warehouseId);
+  const [velPickupLocation, setVelPickupLocation] = useState(velocityConfig.pickupLocation);
+  const [velChannelId, setVelChannelId] = useState(velocityConfig.channelId);
+  const [isCreatingWarehouse, setIsCreatingWarehouse] = useState(false);
+  const [newWarehouse, setNewWarehouse] = useState({
+    name: "Main Atelier Warehouse",
+    contactPerson: "",
+    phoneNumber: "",
+    email: "",
+    gstNo: "",
+    streetAddress: "",
+    city: "",
+    state: "",
+    zip: "",
+  });
 
   // New Coupon modal state
   const [isAddCouponOpen, setIsAddCouponOpen] = useState(false);
@@ -156,6 +175,46 @@ export default function AdminDashboardPage() {
       announcementText: settingsAnnouncement,
       freeShippingThreshold: Number(settingsThreshold),
     });
+  };
+
+  const handleSaveVelocitySettings = (e: React.FormEvent) => {
+    e.preventDefault();
+    updateVelocityConfig({
+      warehouseId: velWarehouseId.trim(),
+      pickupLocation: velPickupLocation.trim(),
+      channelId: velChannelId.trim(),
+    });
+  };
+
+  const handleCreateVelocityWarehouse = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsCreatingWarehouse(true);
+    try {
+      const res = await fetch("/api/velocity/warehouse", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newWarehouse),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success || !data.warehouseId) {
+        throw new Error(data?.message || "Failed to create warehouse in Velocity");
+      }
+      setVelWarehouseId(data.warehouseId);
+      setVelPickupLocation(data.pickupLocation || newWarehouse.name);
+      updateVelocityConfig({
+        warehouseId: data.warehouseId,
+        pickupLocation: data.pickupLocation || newWarehouse.name,
+        channelId: velChannelId.trim(),
+      });
+      showToast(`Velocity Warehouse created: ${data.warehouseId}`, "success");
+    } catch (err) {
+      showToast(
+        err instanceof Error ? err.message : "Failed to create Velocity warehouse",
+        "error"
+      );
+    } finally {
+      setIsCreatingWarehouse(false);
+    }
   };
 
   return (
@@ -728,63 +787,214 @@ export default function AdminDashboardPage() {
 
         {/* TAB 5: BRAND & STORE SETTINGS */}
         {activeTab === "settings" && (
-          <div className="max-w-2xl bg-[#102B3A] p-6 sm:p-8 rounded-2xl border border-[#226192]/40 shadow-lg space-y-6">
-            <div>
-              <h3 className="font-serif text-xl font-bold text-white">Store Identity & Configuration</h3>
-              <p className="text-xs text-white/60 mt-1">
-                Configure brand name placeholder, announcement text, and shipping threshold across the entire application.
-              </p>
-            </div>
-
-            <form onSubmit={handleSaveSettings} className="space-y-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="bg-[#102B3A] p-6 sm:p-8 rounded-2xl border border-[#226192]/40 shadow-lg space-y-6">
               <div>
-                <label className="text-xs font-bold text-white block mb-1">
-                  Brand Name (Configurable Placeholder)
-                </label>
-                <input
-                  type="text"
-                  value={settingsBrandName}
-                  onChange={(e) => setSettingsBrandName(e.target.value)}
-                  className="w-full px-3 py-2.5 bg-[#0C1E28] border border-[#226192]/40 rounded-lg text-xs text-white focus:outline-none focus:ring-1 focus:ring-[#EF8557]"
-                />
-                <p className="text-[10px] text-white/50 mt-1">
-                  Changing this instantly updates the navbar logo, footer, invoices, and meta tags.
+                <h3 className="font-serif text-xl font-bold text-white">Store Identity & Configuration</h3>
+                <p className="text-xs text-white/60 mt-1">
+                  Configure brand name placeholder, announcement text, and shipping threshold across the entire application.
                 </p>
               </div>
 
+              <form onSubmit={handleSaveSettings} className="space-y-4">
+                <div>
+                  <label className="text-xs font-bold text-white block mb-1">
+                    Brand Name (Configurable Placeholder)
+                  </label>
+                  <input
+                    type="text"
+                    value={settingsBrandName}
+                    onChange={(e) => setSettingsBrandName(e.target.value)}
+                    className="w-full px-3 py-2.5 bg-[#0C1E28] border border-[#226192]/40 rounded-lg text-xs text-white focus:outline-none focus:ring-1 focus:ring-[#EF8557]"
+                  />
+                  <p className="text-[10px] text-white/50 mt-1">
+                    Changing this instantly updates the navbar logo, footer, invoices, and meta tags.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-white block mb-1">
+                    Announcement Bar Marquee Text
+                  </label>
+                  <input
+                    type="text"
+                    value={settingsAnnouncement}
+                    onChange={(e) => setSettingsAnnouncement(e.target.value)}
+                    className="w-full px-3 py-2.5 bg-[#0C1E28] border border-[#226192]/40 rounded-lg text-xs text-white focus:outline-none focus:ring-1 focus:ring-[#EF8557]"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-white block mb-1">
+                    Free Express Shipping Threshold (₹ INR)
+                  </label>
+                  <input
+                    type="number"
+                    value={settingsThreshold}
+                    onChange={(e) => setSettingsThreshold(Number(e.target.value))}
+                    className="w-full px-3 py-2.5 bg-[#0C1E28] border border-[#226192]/40 rounded-lg text-xs text-white focus:outline-none focus:ring-1 focus:ring-[#EF8557]"
+                  />
+                </div>
+
+                <div className="pt-4">
+                  <button
+                    type="submit"
+                    className="px-6 py-3 bg-[#EF8557] hover:bg-[#DF7446] text-white text-xs font-bold uppercase tracking-wider rounded-xl transition-all shadow-md"
+                  >
+                    Save Store Settings
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            {/* Velocity Shipping Integration Settings */}
+            <div className="bg-[#102B3A] p-6 sm:p-8 rounded-2xl border border-[#226192]/40 shadow-lg space-y-6">
               <div>
-                <label className="text-xs font-bold text-white block mb-1">
-                  Announcement Bar Marquee Text
-                </label>
-                <input
-                  type="text"
-                  value={settingsAnnouncement}
-                  onChange={(e) => setSettingsAnnouncement(e.target.value)}
-                  className="w-full px-3 py-2.5 bg-[#0C1E28] border border-[#226192]/40 rounded-lg text-xs text-white focus:outline-none focus:ring-1 focus:ring-[#EF8557]"
-                />
+                <h3 className="font-serif text-xl font-bold text-white">Velocity Shipping Integration</h3>
+                <p className="text-xs text-white/60 mt-1">
+                  Enter your existing Velocity Warehouse ID & Pickup Location, or create a new warehouse in Velocity below.
+                </p>
               </div>
 
-              <div>
-                <label className="text-xs font-bold text-white block mb-1">
-                  Free Express Shipping Threshold (₹ INR)
-                </label>
-                <input
-                  type="number"
-                  value={settingsThreshold}
-                  onChange={(e) => setSettingsThreshold(Number(e.target.value))}
-                  className="w-full px-3 py-2.5 bg-[#0C1E28] border border-[#226192]/40 rounded-lg text-xs text-white focus:outline-none focus:ring-1 focus:ring-[#EF8557]"
-                />
-              </div>
+              <form onSubmit={handleSaveVelocitySettings} className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-bold text-white block mb-1">
+                      Velocity Warehouse ID *
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. WH66DU"
+                      value={velWarehouseId}
+                      onChange={(e) => setVelWarehouseId(e.target.value)}
+                      className="w-full px-3 py-2.5 bg-[#0C1E28] border border-[#226192]/40 rounded-lg text-xs text-white focus:outline-none focus:ring-1 focus:ring-[#EF8557]"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-white block mb-1">
+                      Pickup Location Name *
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Main Atelier Warehouse"
+                      value={velPickupLocation}
+                      onChange={(e) => setVelPickupLocation(e.target.value)}
+                      className="w-full px-3 py-2.5 bg-[#0C1E28] border border-[#226192]/40 rounded-lg text-xs text-white focus:outline-none focus:ring-1 focus:ring-[#EF8557]"
+                    />
+                  </div>
+                </div>
 
-              <div className="pt-4">
+                <div>
+                  <label className="text-xs font-bold text-white block mb-1">
+                    Channel ID (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Optional Velocity Channel ID"
+                    value={velChannelId}
+                    onChange={(e) => setVelChannelId(e.target.value)}
+                    className="w-full px-3 py-2.5 bg-[#0C1E28] border border-[#226192]/40 rounded-lg text-xs text-white focus:outline-none focus:ring-1 focus:ring-[#EF8557]"
+                  />
+                </div>
+
                 <button
                   type="submit"
-                  className="px-6 py-3 bg-[#EF8557] hover:bg-[#DF7446] text-white text-xs font-bold uppercase tracking-wider rounded-xl transition-all shadow-md"
+                  className="px-6 py-2.5 bg-[#EF8557] hover:bg-[#DF7446] text-white text-xs font-bold uppercase tracking-wider rounded-xl transition-all shadow-md"
                 >
-                  Save Store Settings
+                  Save Velocity Warehouse ID
                 </button>
-              </div>
-            </form>
+              </form>
+
+              <form
+                onSubmit={handleCreateVelocityWarehouse}
+                className="pt-5 border-t border-[#226192]/30 space-y-3"
+              >
+                <p className="text-xs font-bold text-[#EF8557] uppercase tracking-wider">
+                  Or Create New Warehouse in Velocity
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                  <input
+                    type="text"
+                    required
+                    placeholder="Warehouse Name *"
+                    value={newWarehouse.name}
+                    onChange={(e) => setNewWarehouse({ ...newWarehouse, name: e.target.value })}
+                    className="px-3 py-2 bg-[#0C1E28] border border-[#226192]/40 rounded-lg text-white"
+                  />
+                  <input
+                    type="text"
+                    required
+                    placeholder="Contact Person *"
+                    value={newWarehouse.contactPerson}
+                    onChange={(e) => setNewWarehouse({ ...newWarehouse, contactPerson: e.target.value })}
+                    className="px-3 py-2 bg-[#0C1E28] border border-[#226192]/40 rounded-lg text-white"
+                  />
+                  <input
+                    type="tel"
+                    required
+                    placeholder="Phone (10 digits) *"
+                    value={newWarehouse.phoneNumber}
+                    onChange={(e) => setNewWarehouse({ ...newWarehouse, phoneNumber: e.target.value })}
+                    className="px-3 py-2 bg-[#0C1E28] border border-[#226192]/40 rounded-lg text-white"
+                  />
+                  <input
+                    type="email"
+                    required
+                    placeholder="Email *"
+                    value={newWarehouse.email}
+                    onChange={(e) => setNewWarehouse({ ...newWarehouse, email: e.target.value })}
+                    className="px-3 py-2 bg-[#0C1E28] border border-[#226192]/40 rounded-lg text-white"
+                  />
+                  <input
+                    type="text"
+                    required
+                    placeholder="Street Address *"
+                    value={newWarehouse.streetAddress}
+                    onChange={(e) => setNewWarehouse({ ...newWarehouse, streetAddress: e.target.value })}
+                    className="sm:col-span-2 px-3 py-2 bg-[#0C1E28] border border-[#226192]/40 rounded-lg text-white"
+                  />
+                  <input
+                    type="text"
+                    required
+                    placeholder="City *"
+                    value={newWarehouse.city}
+                    onChange={(e) => setNewWarehouse({ ...newWarehouse, city: e.target.value })}
+                    className="px-3 py-2 bg-[#0C1E28] border border-[#226192]/40 rounded-lg text-white"
+                  />
+                  <input
+                    type="text"
+                    required
+                    placeholder="State *"
+                    value={newWarehouse.state}
+                    onChange={(e) => setNewWarehouse({ ...newWarehouse, state: e.target.value })}
+                    className="px-3 py-2 bg-[#0C1E28] border border-[#226192]/40 rounded-lg text-white"
+                  />
+                  <input
+                    type="text"
+                    required
+                    maxLength={6}
+                    placeholder="PIN Code *"
+                    value={newWarehouse.zip}
+                    onChange={(e) => setNewWarehouse({ ...newWarehouse, zip: e.target.value })}
+                    className="px-3 py-2 bg-[#0C1E28] border border-[#226192]/40 rounded-lg text-white"
+                  />
+                  <input
+                    type="text"
+                    placeholder="GST No (Optional)"
+                    value={newWarehouse.gstNo}
+                    onChange={(e) => setNewWarehouse({ ...newWarehouse, gstNo: e.target.value })}
+                    className="px-3 py-2 bg-[#0C1E28] border border-[#226192]/40 rounded-lg text-white"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={isCreatingWarehouse}
+                  className="px-5 py-2.5 bg-[#226192] hover:bg-[#1b4f78] disabled:opacity-50 text-white text-xs font-bold uppercase tracking-wider rounded-xl transition-all"
+                >
+                  {isCreatingWarehouse ? "Creating in Velocity..." : "Create Velocity Warehouse"}
+                </button>
+              </form>
+            </div>
           </div>
         )}
       </main>
@@ -849,6 +1059,22 @@ export default function AdminDashboardPage() {
               <div>
                 <span className="text-white/60">Payment: </span>
                 <span className="font-bold uppercase text-green-400">{selectedOrder.paymentMethod} ({selectedOrder.paymentStatus})</span>
+                {selectedOrder.razorpayPaymentId && (
+                  <p className="text-[11px] text-white/60 mt-0.5">
+                    Razorpay ID: {selectedOrder.razorpayPaymentId}
+                  </p>
+                )}
+                {selectedOrder.velocityOrderId && (
+                  <p className="text-[11px] text-green-400 mt-0.5">
+                    Velocity Order: {selectedOrder.velocityOrderId}
+                    {selectedOrder.velocityShipmentId ? ` • Shipment: ${selectedOrder.velocityShipmentId}` : ""}
+                  </p>
+                )}
+                {!selectedOrder.velocitySynced && selectedOrder.velocityError && (
+                  <p className="text-[11px] text-amber-400 mt-0.5">
+                    Velocity Sync: {selectedOrder.velocityError}
+                  </p>
+                )}
               </div>
               <div className="text-right">
                 <span className="text-white/60">Total: </span>

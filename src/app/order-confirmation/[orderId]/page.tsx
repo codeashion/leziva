@@ -59,17 +59,35 @@ export default function OrderConfirmationPage({ params }: OrderConfirmationProps
           </h1>
 
           <p className="text-sm text-[#77716A] max-w-md mx-auto">
-            Your payment has been verified. We are preparing your heirloom garment with authentic packaging at our artisan atelier.
+            {order?.paymentMethod === "cod"
+              ? "Your Cash on Delivery order is confirmed. We are preparing your heirloom garment at our artisan atelier."
+              : "Your payment has been verified. We are preparing your heirloom garment with authentic packaging at our artisan atelier."}
           </p>
 
-          <div className="pt-2 inline-flex items-center gap-3 bg-[#EAE6DE] px-4 py-2 rounded-lg text-xs">
+          <div className="pt-2 inline-flex flex-wrap items-center justify-center gap-3 bg-[#EAE6DE] px-4 py-2 rounded-lg text-xs">
             <span className="text-[#77716A]">Order ID:</span>
             <strong className="text-[#102B3A] font-serif text-sm">{order?.orderNumber || "#1248"}</strong>
             <span className="text-[#DED6CB]">|</span>
-            <span className="text-[#168454] font-semibold flex items-center gap-1">
-              <ShieldCheck className="w-3.5 h-3.5" /> Razorpay Verified
-            </span>
+            {order?.paymentMethod === "cod" ? (
+              <span className="text-[#102B3A] font-semibold">Cash on Delivery</span>
+            ) : (
+              <span className="text-[#168454] font-semibold flex items-center gap-1">
+                <ShieldCheck className="w-3.5 h-3.5" /> Razorpay Verified
+                {order?.razorpayPaymentId ? ` (${order.razorpayPaymentId})` : ""}
+              </span>
+            )}
           </div>
+
+          {order?.velocitySynced ? (
+            <p className="text-xs text-[#168454] font-medium">
+              Synced to Velocity Shipping • Velocity Order: {order.velocityOrderId}
+              {order.velocityShipmentId ? ` • Shipment: ${order.velocityShipmentId}` : ""}
+            </p>
+          ) : order?.velocityError ? (
+            <p className="text-xs text-amber-700 font-medium">
+              Velocity Shipping Sync Pending: {order.velocityError}
+            </p>
+          ) : null}
         </div>
 
         {/* Tracking & Timeline Card */}
